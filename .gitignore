@@ -1,0 +1,25 @@
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfplan
+crash.log
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Environment variables and credentials
+.env
+.env.*
+*.json.key
+*service-account*.json
+
+# IDE and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

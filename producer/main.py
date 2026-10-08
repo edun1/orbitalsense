@@ -39,14 +39,16 @@ def generate_telemetry(satellite_id, ground_station_id):
 
 
 
-if __name__ == "__main__":
+
+def simulate_reporting_cycles():
+    """Simulate three reporting cycles with controlled failures."""
+    all_events = []
 
     for cycle in range(1, 4):
         events = []
 
         for index, satellite_id in enumerate(SATELLITES):
-
-            # SAT-007 goes silent during cycle 2.
+            # SAT-007 stops transmitting during cycle 2.
             if cycle == 2 and satellite_id == "SAT-007":
                 continue
 
@@ -59,25 +61,27 @@ if __name__ == "__main__":
                 ground_station_id
             )
 
+            event["reporting_cycle"] = cycle
             events.append(event)
 
-        # Inject failures into reporting cycle 2.
         if cycle == 2:
-
-            # Malformed reading from SAT-003.
+            # Inject a malformed reading from SAT-003.
             malformed_event = generate_telemetry(
                 "SAT-003", "GS-003"
             )
             malformed_event["power"]["battery_level"] = 150.0
+            malformed_event["reporting_cycle"] = cycle
             events.append(malformed_event)
 
-            # Retransmit the original SAT-001 event.
+            # Retransmit an existing event without changing its identity.
             duplicate_event = events[0].copy()
             events.append(duplicate_event)
 
-        # Print JSON records only.
-        for event in events:
-            event["reporting_cycle"] = cycle
-            print(json.dumps(event))
+        all_events.extend(events)
+
+    return all_events
 
 
+if __name__ == "__main__":
+    for event in simulate_reporting_cycles():
+        print(json.dumps(event))

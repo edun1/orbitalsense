@@ -11,10 +11,38 @@ from producer.main import (
     SATELLITES,
     GROUND_STATIONS,
     generate_telemetry,
+    simulate_reporting_cycles,
 )
 
 
 class TestTelemetryProducer(unittest.TestCase):
+
+
+    def test_total_simulated_events(self):
+        """The simulation generates exactly 37 events."""
+        events = simulate_reporting_cycles()
+        self.assertEqual(len(events), 37)
+
+    def test_duplicate_event(self):
+        """One event is retransmitted with the same ID."""
+        events = simulate_reporting_cycles()
+        event_ids = [event["event_id"] for event in events]
+        self.assertEqual(len(event_ids), 37)
+        self.assertEqual(len(set(event_ids)), 36)
+
+    def test_malformed_battery_reading(self):
+        """One simulated battery reading exceeds 100%."""
+        events = simulate_reporting_cycles()
+        malformed = [
+            event for event in events
+            if event["power"]["battery_level"] > 100
+        ]
+        self.assertEqual(len(malformed), 1)
+        self.assertEqual(
+            malformed[0]["power"]["battery_level"],
+            150.0
+        )
+
 
     def test_satellite_count(self):
         """The simulator defines 12 satellites."""
@@ -61,6 +89,22 @@ class TestTelemetryProducer(unittest.TestCase):
             first["event_id"],
             second["event_id"],
         )
+
+    def test_satellite_silence_and_recovery(self):
+        """SAT-007 is silent in cycle 2 and recovers in cycle 3."""
+        events = simulate_reporting_cycles()
+
+        def satellite_reported(cycle):
+            return any(
+                event["satellite_id"] == "SAT-007"
+                and event["reporting_cycle"] == cycle
+                for event in events
+            )
+
+        self.assertTrue(satellite_reported(1))
+        self.assertFalse(satellite_reported(2))
+        self.assertTrue(satellite_reported(3))
+
 
 
 if __name__ == "__main__":

@@ -23,3 +23,7 @@ venv/
 .idea/
 .DS_Store
 Thumbs.db
+
+
+# Generated telemetry output
+telemetry_output.jsonl

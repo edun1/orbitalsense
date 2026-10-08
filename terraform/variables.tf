@@ -20,3 +20,12 @@ variable "resource_prefix" {
   type        = string
   default     = "orbitalsense"
 }
+
+
+
+
+variable "producer_image" {
+  description = "Container image URI for the OrbitalSense telemetry producer"
+  type        = string
+  default     = null
+}

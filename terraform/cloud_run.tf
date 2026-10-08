@@ -1,7 +1,7 @@
 
-# Cloud Run service for the satellite telemetry producer
+# Cloud Run Job for the satellite telemetry producer
 
-resource "google_cloud_run_v2_service" "telemetry_producer" {
+resource "google_cloud_run_v2_job" "telemetry_producer" {
   count = var.producer_image == null ? 0 : 1
 
   name     = "${var.resource_prefix}-${var.environment}-producer"
@@ -11,30 +11,35 @@ resource "google_cloud_run_v2_service" "telemetry_producer" {
   deletion_protection = true
 
   template {
-    service_account = google_service_account.telemetry_producer.email
+    template {
+      service_account = google_service_account.telemetry_producer.email
 
-    scaling {
-      min_instance_count = 1
-      max_instance_count = 1
-    }
+      max_retries = 0
+      timeout     = "300s"
 
-    containers {
-      image = var.producer_image
+      containers {
+        image = var.producer_image
 
-      env {
-        name  = "GCP_PROJECT_ID"
-        value = var.project_id
-      }
+        env {
+          name  = "PUBLISH_MODE"
+          value = "cloud"
+        }
 
-      env {
-        name  = "PUBSUB_TOPIC_ID"
-        value = google_pubsub_topic.satellite_telemetry.name
-      }
+        env {
+          name  = "GCP_PROJECT_ID"
+          value = var.project_id
+        }
 
-      resources {
-        limits = {
-          cpu    = "1"
-          memory = "512Mi"
+        env {
+          name  = "PUBSUB_TOPIC_ID"
+          value = google_pubsub_topic.satellite_telemetry.name
+        }
+
+        resources {
+          limits = {
+            cpu    = "1"
+            memory = "512Mi"
+          }
         }
       }
     }

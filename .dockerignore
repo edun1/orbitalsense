@@ -1,0 +1,12 @@
+
+.git/
+.venv/
+**/__pycache__/
+**/*.pyc
+**/.terraform/
+**/*.tfstate
+**/*.tfstate.*
+*.tfvars
+.env
+.env.*
+telemetry_output.jsonl

@@ -27,3 +27,4 @@ Thumbs.db
 
 # Generated telemetry output
 telemetry_output.jsonl
+docker_telemetry.jsonl

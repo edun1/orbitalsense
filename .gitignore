@@ -28,3 +28,16 @@ Thumbs.db
 # Generated telemetry output
 telemetry_output.jsonl
 docker_telemetry.jsonl
+
+# OrbitalSense generated telemetry
+*.jsonl
+
+# Generated data-quality reports
+beam_*_kpis.json
+orbital_quality_report.json
+
+# Temporary Beam downloads
+beam_download/
+
+# Accidentally nested project repository
+/orbitalsense/

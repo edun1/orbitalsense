@@ -2,7 +2,7 @@
 import json
 import random
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 
 SATELLITES = [f"SAT-{i:03d}" for i in range(1, 13)]
@@ -10,13 +10,25 @@ GROUND_STATIONS = [f"GS-{i:03d}" for i in range(1, 5)]
 
 
 def generate_telemetry(satellite_id, ground_station_id):
+
     """Generate one simulated satellite telemetry event."""
 
+    # Record when the satellite generates telemetry
+    event_time = datetime.now(timezone.utc)
+
+    # Simulate delivery delays between 0 and 15 minutes
+    delay_seconds = random.randint(0, 900)
+
+    # Calculate when the ground station receives the message
+    arrival_time = event_time + timedelta(seconds=delay_seconds)
+
     return {
+
         "event_id": str(uuid.uuid4()),
         "satellite_id": satellite_id,
         "ground_station_id": ground_station_id,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+       "timestamp": event_time.isoformat(),
+"arrival_timestamp": arrival_time.isoformat(),
         "power": {
             "battery_voltage": round(random.uniform(24.0, 32.0), 2),
             "battery_level": round(random.uniform(40.0, 100.0), 2)

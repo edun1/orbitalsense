@@ -1,433 +1,755 @@
-# 🛰️ OrbitalSense
-### Event-Driven Satellite Telemetry Processing & Data Reliability Platform
+# OrbitalSense
+### Satellite Telemetry Data Engineering Platform
 
-**Python | Apache Beam | Data Engineering | Terraform | Docker | Google Cloud**
+**Python | Apache Beam | Data Quality Engineering | Google Cloud | Terraform | Git**
 
-OrbitalSense is an end-to-end data engineering capstone project focused on building reliable satellite telemetry processing pipelines.
+[![Project Status](https://img.shields.io/badge/Status-Local%20Pipeline%20Operational-brightgreen)](https://github.com/edun1/orbitalsense)
+[![Apache Beam](https://img.shields.io/badge/Apache%20Beam-2.77.0-blue)](https://beam.apache.org/)
+[![Python](https://img.shields.io/badge/Python-3.14-blue)](https://www.python.org/)
+[![License](https://img.shields.io/badge/License-Not%20Specified-lightgrey)](https://github.com/edun1/orbitalsense)
 
-The project simulates telemetry from multiple satellites and ground stations, processes events using Apache Beam, validates incoming records, detects duplicates, measures ingestion freshness, identifies missing reports, and generates automated data-quality metrics.
-
-**Engineering challenge:** How can a data pipeline produce trustworthy analytical datasets when incoming events are delayed, duplicated, invalid, or missing?
-
-OrbitalSense addresses this challenge through modular Python development, event-based processing, automated data-quality checks, and Infrastructure as Code.
-
-**Current status:** The Apache Beam processing pipeline has been implemented and tested locally. Google Cloud infrastructure has been defined using Terraform but has not yet been deployed.
+**Repository:** https://github.com/edun1/orbitalsense
 
 ---
 
-## Engineering Highlights
+## 1. Project Overview
 
-- **Event-driven architecture:** Designed a satellite telemetry processing workflow with separate event and arrival timestamps.
-- **Apache Beam processing:** Implemented modular transformations for parsing, validation, deduplication, and telemetry enrichment.
-- **Data quality engineering:** Developed quarantine handling, freshness monitoring, and reporting completeness checks.
-- **Controlled fault injection:** Simulated invalid, duplicate, delayed, and missing telemetry observations to test pipeline behavior.
-- **Pipeline observability:** Generated JSON-based quality metrics for evaluating data reliability.
-- **Infrastructure as Code:** Authored Terraform configuration for a planned Google Cloud architecture.
-- **Reproducible execution:** Created a Windows batch script for running the local processing pipeline and generating reports.
-- **Automated testing:** Added Python tests for telemetry producer and publishing components.
+OrbitalSense is a satellite telemetry data engineering capstone designed to demonstrate how telemetry from a constellation of satellites can be generated, validated, processed, and monitored for data quality.
+
+The project simulates telemetry from **12 satellites communicating through 4 ground stations**, with measurements representing satellite subsystems such as power, thermal conditions, communications, and orbital position.
+
+The engineering objective is to build a trustworthy data platform that addresses three operational priorities:
+
+1. **Trust:** Prevent invalid or duplicate telemetry from contaminating curated datasets.
+2. **Timeliness:** Measure whether telemetry reaches the processing system within an acceptable delay.
+3. **Completeness:** Identify missing satellite reports rather than silently ignoring gaps.
+
+The project combines practical Python development, Apache Beam processing, data-quality engineering, infrastructure-as-code preparation, and cloud architecture design.
+
+### Current implementation status
+
+The **local data processing workflow is operational and tested**.
+
+A single Windows batch command automatically:
+
+- Generates simulated satellite telemetry.
+- Processes the dataset using Apache Beam.
+- Validates and quarantines suspicious records.
+- Identifies duplicate telemetry.
+- Calculates freshness and completeness KPIs.
+- Produces a consolidated data-quality report.
+
+**Important:** The Google Cloud architecture is a planned deployment target. Terraform configuration has been validated locally, but the cloud infrastructure has not yet been deployed because billing is not enabled. Cloud streaming, BigQuery integration, and production deployment should not be considered completed.
 
 ---
 
-## System Architecture
+## 2. Business Problem
 
-### Implemented Local Architecture
+Satellite operations depend on telemetry to understand spacecraft health and operational conditions.
+
+However, satellite telemetry is not always delivered cleanly or consistently.
+
+Real-world challenges include:
+
+- Satellites temporarily moving outside ground-station coverage.
+- Delayed or out-of-order telemetry.
+- Duplicate messages caused by retries.
+- Physically implausible sensor readings.
+- Missing reporting cycles.
+- Malformed messages.
+- Differences between raw incoming data and trusted analytical data.
+
+Without proper data engineering controls, these conditions can lead to misleading dashboards, inaccurate operational decisions, and undetected system failures.
+
+OrbitalSense addresses these challenges by building an explicit data-quality workflow.
+
+---
+
+## 3. Architecture
+
+### 3.1 Implemented local architecture
 
 ```text
-                  SATELLITE TELEMETRY SOURCES
-                  12 Satellites | 4 Stations
+              SATELLITE TELEMETRY SIMULATOR
+                       producer/main.py
                               |
                               v
-                   Python Telemetry Producer
+                  37 Raw Telemetry Events
                               |
                               v
-                      JSONL Event Dataset
+                telemetry_freshness_test.jsonl
                               |
                               v
-                    Apache Beam Pipeline
+                     APACHE BEAM PIPELINE
+                  pipeline/beam_pipeline.py
                               |
-             +----------------+----------------+
-             |                                 |
-             v                                 v
-       Parsing & Validation              Invalid Records
-             |                             Quarantine
-             v
-        Deduplication
-             |
-             v
-       Curated Telemetry
-             |
-       +-----+------+
-       |            |
-       v            v
-   Freshness    Completeness
-   Monitoring   Monitoring
-       |            |
-       +------+-----+
-              |
-              v
-       Data Quality KPIs
-              |
-              v
-       JSON Quality Reports
+               +--------------+--------------+
+               |                             |
+               v                             v
+       Validation and Parsing       Invalid / Malformed Data
+               |                             |
+               v                             v
+         Deduplication                 Quarantine Output
+               |
+               v
+        Valid Unique Events
+               |
+        +------+------+
+        |             |
+        v             v
+    Freshness     Completeness
+      Metrics        Metrics
+        |             |
+        +------+------+
+               |
+               v
+        DATA-QUALITY REPORT
+     pipeline/quality_report.py
+               |
+               v
+    orbital_quality_report.json
 ```
 
-### Planned Google Cloud Architecture
+This local implementation uses Apache Beam's execution environment to process generated JSONL data.
+
+It does not require an active Google Cloud project.
+
+### 3.2 Target cloud architecture
+
+The planned cloud-native implementation is:
 
 ```text
-Satellite Telemetry Producer
-             |
-             v
-       Cloud Run
-             |
-             v
-       Pub/Sub Topic
-             |
-             v
-   Apache Beam / Dataflow
-             |
-      +------+-------+
-      |              |
-      v              v
- Cloud Storage     BigQuery
- Raw / Curated     Analytics
-      |              |
-      +------+-------+
-             |
-             v
-    Monitoring & Reporting
-
-    Infrastructure: Terraform
-    Containerization: Docker
+               SATELLITE TELEMETRY
+                    PRODUCER
+                       |
+                       v
+                 CLOUD RUN
+                       |
+                       v
+                 CLOUD PUB/SUB
+                       |
+                       v
+              APACHE BEAM / DATAFLOW
+                       |
+          +------------+------------+
+          |                         |
+          v                         v
+      VALID DATA                INVALID DATA
+          |                         |
+          v                         v
+   CURATED STORAGE            QUARANTINE /
+          |                   DEAD-LETTER
+          v                      STORAGE
+       BIGQUERY
+          |
+          v
+   OPERATIONAL ANALYTICS
 ```
 
-The cloud architecture represents the target deployment design. It is not a currently running cloud environment.
+Supporting services planned for this architecture include:
+
+- **Terraform:** Infrastructure provisioning and configuration.
+- **Cloud Storage:** Raw telemetry storage and related artifacts.
+- **Pub/Sub:** Messaging and ingestion.
+- **Dataflow:** Managed execution of Apache Beam pipelines.
+- **BigQuery:** Analytical storage and SQL querying.
+- **Cloud Run:** Containerized telemetry producer.
+- **Artifact Registry:** Container image storage.
+- **IAM:** Service identities and least-privilege access.
+
+This diagram represents the intended cloud architecture, not a deployed environment.
 
 ---
 
-## Dataset Engineering and Fault Injection
+## 4. Technology Stack
 
-OrbitalSense simulates satellite telemetry across multiple reporting cycles.
+| Technology | Purpose | Status |
+|---|---|---|
+| Python 3.14 | Telemetry generation and processing | Tested locally |
+| Apache Beam 2.77.0 | Data transformation and quality checks | Tested locally |
+| JSON / JSONL | Local event exchange and output | Implemented |
+| Windows Batch | Automated local pipeline execution | Implemented |
+| Git and GitHub | Version control and source publication | Implemented |
+| Terraform | Infrastructure-as-code configuration | Validated locally |
+| Google Cloud Pub/Sub | Planned cloud messaging | Not deployed |
+| Google Cloud Dataflow | Planned managed pipeline execution | Not deployed |
+| Google Cloud Storage | Planned cloud storage | Not deployed |
+| Google BigQuery | Planned analytical warehouse | Not deployed |
+| Google Cloud Run | Planned container hosting | Not deployed |
 
-| Dataset characteristic | Value |
+---
+
+## 5. Telemetry Simulation
+
+The simulator models a constellation of **12 satellites**, identified as:
+
+`SAT-001` through `SAT-012`.
+
+Telemetry is associated with one of four ground stations.
+
+The simulated data includes measurements relating to:
+
+- Satellite power systems.
+- Thermal conditions.
+- Communications.
+- Orbital location.
+- Event timestamps.
+- Arrival timestamps.
+- Satellite identification.
+- Reporting cycles.
+- Unique event identifiers.
+
+### Controlled data-quality scenarios
+
+The current local test generates three reporting cycles and deliberately introduces data-quality problems.
+
+| Scenario | Implementation |
 |---|---|
-| Simulated satellites | 12 |
-| Ground stations | 4 |
-| Reporting cycles | 3 |
-| Expected reports | 36 |
-| Raw events processed | 37 |
-| Invalid records | 1 |
-| Duplicate records | 1 |
-| Missing expected reports | 1 |
+| Normal reporting | Satellites produce telemetry during reporting cycles |
+| Missing report | SAT-007 is omitted from reporting cycle 2 |
+| Invalid reading | SAT-003 receives an invalid battery reading in cycle 2 |
+| Duplicate event | A telemetry event is repeated |
+| Delayed delivery | Random arrival delays of up to 900 seconds |
 
-The dataset intentionally includes the following scenarios:
+This design allows the pipeline to demonstrate quality checks against both normal and problematic data.
 
-1. An invalid battery reading associated with SAT-003.
-2. A duplicate telemetry event.
-3. A missing report from SAT-007 during reporting cycle 2.
-4. Simulated arrival delays ranging from 0 to 900 seconds.
+### Expected dataset size
 
-These controlled scenarios make it possible to evaluate pipeline behavior against known data-quality conditions.
+For 12 satellites and 3 reporting cycles:
 
----
+```text
+Expected reporting combinations = 12 × 3 = 36
+```
 
-## Data Pipeline Engineering
+One reporting combination is intentionally missing, while one event is duplicated.
 
-### 1. Telemetry Parsing and Validation
+Therefore, the simulator emits:
 
-The Apache Beam pipeline reads JSONL telemetry events and applies validation rules to identify invalid observations.
+```text
+37 raw telemetry events
+```
 
-Records that fail validation are quarantined instead of being included in the curated dataset.
+Of those:
 
-This prevents invalid source records from silently affecting downstream analytical results.
-
-### 2. Duplicate Detection
-
-Duplicate telemetry observations are identified and excluded from the curated output.
-
-Deduplication helps prevent inflated event counts and repeated observations from distorting analytical metrics.
-
-### 3. Event-Time Freshness Monitoring
-
-The telemetry simulator represents two distinct timestamps:
-
-- **Event timestamp:** When the simulated satellite observation occurred.
-- **Arrival timestamp:** When the event is represented as arriving for processing.
-
-Telemetry arrival latency is calculated as:
-
-`latency_seconds = arrival_timestamp - event_timestamp`
-
-The pipeline uses a five-minute threshold to classify events as on time or delayed.
-
-This demonstrates an important challenge in distributed data engineering: an event can be valid but still arrive too late to meet a system's freshness requirements.
-
-### 4. Reporting Completeness Monitoring
-
-Completeness monitoring compares expected satellite reporting observations with successfully processed valid, unique observations.
-
-`completeness_percentage = (valid_unique_reports / expected_reports) × 100`
-
-The pipeline identifies SAT-007, reporting cycle 2, as a missing observation.
-
-### 5. Automated Data-Quality Reporting
-
-OrbitalSense generates machine-readable quality reports, including:
-
-- `beam_freshness_kpis.json`
-- `beam_completeness_kpis.json`
-- `orbital_quality_report.json`
-
-These reports provide a foundation for future dashboards, automated monitoring, and operational alerts.
+```text
+35 valid unique events
+1 invalid event
+1 duplicate event
+```
 
 ---
 
-## Verified Local Pipeline Results
+## 6. Data Processing Pipeline
 
-The locally tested Apache Beam workflow produced the following results:
+The main Apache Beam pipeline is implemented in:
 
-| Data-quality metric | Result |
+`pipeline/beam_pipeline.py`
+
+Its processing stages include:
+
+### 6.1 Parsing
+
+Incoming JSONL records are read and interpreted as telemetry events.
+
+Malformed records are counted separately from valid events.
+
+### 6.2 Validation
+
+Telemetry records are checked for validity, including implausible values.
+
+Invalid records are routed to quarantine instead of being included in the trusted output.
+
+### 6.3 Deduplication
+
+Duplicate telemetry is identified to prevent repeated events from inflating downstream metrics.
+
+### 6.4 Freshness measurement
+
+Freshness measures whether a telemetry event arrived within the configured time threshold.
+
+The current local evaluation uses a five-minute threshold.
+
+```text
+Freshness Rate =
+(On-Time Valid Events / Total Valid Unique Events) × 100
+```
+
+### 6.5 Completeness measurement
+
+Completeness measures how many expected satellite reporting combinations are represented by valid, unique events.
+
+```text
+Completeness Rate =
+(Received Valid Reports / Expected Reports) × 100
+```
+
+### 6.6 Reporting
+
+The pipeline produces KPI outputs, and the reporting module generates a consolidated JSON report.
+
+---
+
+## 7. Verified Local Pipeline Results
+
+The following results were obtained from a successful local execution of `run_orbitalsense.bat`.
+
+### 7.1 Data-quality summary
+
+| Metric | Verified result |
 |---|---:|
 | Raw telemetry events | 37 |
-| Valid unique records | 35 |
-| Invalid records quarantined | 1 |
-| Duplicate records excluded | 1 |
-| Malformed records | 0 |
-| On-time telemetry events | 14 / 35 |
-| Freshness compliance | **40.00%** |
-| Reporting completeness | **97.22%** |
-| Missing observation | SAT-007, Cycle 2 |
+| Valid unique events | 35 |
+| Quarantined events | 1 |
+| Duplicate events | 1 |
+| Malformed JSON messages | 0 |
+| Expected reports | 36 |
+| Received valid reports | 35 |
+| Missing reports | 1 |
+| Completeness rate | **97.22%** |
+| On-time events | 16 |
+| Late events | 19 |
+| Freshness rate | **45.71%** |
 
-### Engineering Interpretation
+### 7.2 Completeness results
 
-**Freshness:** Only 40% of valid unique telemetry observations met the five-minute arrival threshold, demonstrating why ingestion latency requires independent monitoring.
+```json
+{
+  "expected_reports": 36,
+  "received_reports": 35,
+  "missing_reports": 1,
+  "completeness_rate_percent": 97.22,
+  "missing_details": [
+    {
+      "satellite_id": "SAT-007",
+      "reporting_cycle": 2
+    }
+  ]
+}
+```
 
-**Completeness:** The pipeline achieved 97.22% reporting completeness and identified the missing satellite-cycle report.
+The completeness check successfully identified the missing report from **SAT-007 during reporting cycle 2**.
 
-**Data integrity:** Invalid and duplicate observations were detected and excluded from the curated dataset.
+### 7.3 Freshness results
 
-**Key takeaway:** A successful pipeline execution does not automatically guarantee reliable analytical data. Data quality must be assessed across validity, uniqueness, timeliness, and completeness.
+```json
+{
+  "total_events": 35,
+  "on_time": 16,
+  "late": 19,
+  "freshness_rate_percent": 45.71
+}
+```
 
-*All results are based on controlled simulated telemetry, not live satellite measurements.*
+The latest tested run found 16 events arriving within the freshness threshold and 19 arriving late.
+
+**Reproducibility note:** Arrival delays are randomized. The exact freshness percentage may change when the simulator runs again. The figures above represent one verified execution, not a guaranteed result for every run.
 
 ---
 
-## Technology Stack
+## 8. Repository Structure
 
-| Technology | Engineering responsibility |
-|---|---|
-| Python 3.14 | Telemetry simulation and processing logic |
-| Apache Beam 2.77.0 | Event processing and data-quality transformations |
-| Apache Beam DirectRunner | Local pipeline execution |
-| JSON / JSONL | Telemetry exchange and KPI reporting |
-| Terraform | Infrastructure as Code |
-| Docker | Container build configuration |
-| Google Cloud Pub/Sub | Planned cloud event ingestion |
-| Google Cloud Run | Planned telemetry producer hosting |
-| Google Cloud Dataflow | Planned managed pipeline execution |
-| Google Cloud Storage | Planned raw and curated cloud storage |
-| BigQuery | Planned analytics and SQL processing |
-| Git / GitHub | Version control and project documentation |
-
----
-
-## Repository Structure
+The following structure highlights the principal source files and workflow components.
 
 ```text
 orbitalsense/
-├── producer/
-│   ├── main.py
-│   ├── publisher.py
-│   ├── run.py
-│   └── requirements.txt
-│
-├── pipeline/
-│   ├── beam_pipeline.py
-│   ├── parsing.py
-│   ├── validation.py
-│   ├── deduplication.py
-│   ├── freshness.py
-│   ├── completeness.py
-│   ├── quality_report.py
-│   └── main.py
-│
-├── terraform/
-│   ├── bootstrap/
-│   ├── pubsub.tf
-│   ├── cloud_run.tf
-│   ├── storage.tf
-│   ├── iam.tf
-│   └── artifact_registry.tf
-│
-├── tests/
-├── docs/
-├── sql/
-├── Dockerfile
-├── requirements.txt
-├── run_orbitalsense.bat
-└── README.md
+|
+|-- producer/
+|   |-- main.py
+|   |-- publisher.py
+|   |-- requirements.txt
+|   |-- run.py
+|
+|-- pipeline/
+|   |-- beam_pipeline.py
+|   |-- completeness.py
+|   |-- deduplication.py
+|   |-- freshness.py
+|   |-- main.py
+|   |-- parsing.py
+|   |-- quality_report.py
+|   |-- validation.py
+|
+|-- requirements.txt
+|-- run_orbitalsense.bat
+|-- README.md
+|
+|-- [Additional infrastructure and project files]
 ```
+
+### Main components
+
+**`producer/main.py`**
+
+Generates the simulated satellite telemetry dataset.
+
+**`producer/publisher.py`**
+
+Contains producer-side publishing functionality intended for messaging integration.
+
+**`pipeline/beam_pipeline.py`**
+
+Executes the local Apache Beam processing workflow.
+
+**`pipeline/validation.py`**
+
+Contains telemetry validation logic.
+
+**`pipeline/deduplication.py`**
+
+Contains duplicate-handling logic.
+
+**`pipeline/freshness.py`**
+
+Contains freshness-related processing logic.
+
+**`pipeline/completeness.py`**
+
+Contains completeness-related processing logic.
+
+**`pipeline/quality_report.py`**
+
+Generates the consolidated data-quality report.
+
+**`run_orbitalsense.bat`**
+
+Automates the local workflow.
+
+**`requirements.txt`**
+
+Declares the project's main Python dependencies.
+
+The directory listing above is intentionally focused on verified pipeline components rather than claiming to be a complete inventory of every repository file.
 
 ---
 
-## Getting Started — Local Execution
+## 9. Installation and Local Execution
 
-### Prerequisites
+### 9.1 Prerequisites
 
-- Windows with Command Prompt
-- Python 3.14
-- Git
-- Python package installation through pip
+The tested environment uses:
 
-### 1. Clone the Repository
+- Windows 11.
+- Python 3.14.
+- Git.
+- Internet access for initial Python dependency installation.
+
+Google Cloud billing is not required to execute the local workflow.
+
+### 9.2 Clone the repository
+
+Open Windows Command Prompt and run:
 
 ```cmd
 git clone https://github.com/edun1/orbitalsense.git
 cd orbitalsense
 ```
 
-### 2. Install Dependencies
+### 9.3 Install Python dependencies
 
-The project-level `requirements.txt` declares Apache Beam and Google Cloud Pub/Sub dependencies.
+The root `requirements.txt` contains:
+
+```text
+apache-beam==2.77.0
+google-cloud-pubsub>=2.20,<3.0
+```
+
+Install the dependencies with:
 
 ```cmd
 py -3.14 -m pip install -r requirements.txt
 ```
 
-### 3. Run the Local Pipeline
+### 9.4 Run the complete local pipeline
+
+Execute:
 
 ```cmd
 run_orbitalsense.bat
 ```
 
-The batch script executes two stages:
+The batch script automatically runs three stages.
 
-**Stage 1 — Apache Beam processing**
+**Stage 1 — Generate satellite telemetry**
+
+```cmd
+py -3.14 -m producer.main > telemetry_freshness_test.jsonl
+```
+
+This creates the JSONL input dataset required by the local Apache Beam pipeline.
+
+**Stage 2 — Process satellite telemetry**
 
 ```cmd
 py -3.14 -m pipeline.beam_pipeline
 ```
 
-**Stage 2 — Quality report generation**
+Apache Beam processes the telemetry, applies data-quality controls, and calculates KPIs.
+
+**Stage 3 — Generate the data-quality report**
 
 ```cmd
 py -3.14 -m pipeline.quality_report
 ```
 
-The script checks for errors after each stage and stops if a stage fails.
+The reporting module generates:
 
-### 4. Review Generated Reports
+`orbital_quality_report.json`
 
-After successful execution, inspect:
+### 9.5 Expected completion message
 
-- `beam_freshness_kpis.json`
-- `beam_completeness_kpis.json`
-- `orbital_quality_report.json`
+A successful run ends with:
 
-The combined report summarizes telemetry data-quality performance.
+```text
+=====================================
+OrbitalSense pipeline completed!
+Report: orbital_quality_report.json
+=====================================
+```
 
-**Note:** The workflow has been successfully tested in the author's Windows development environment. Some input datasets are generated locally and excluded from Git; a complete fresh-clone setup workflow is still being finalized.
+### 9.6 Important execution notes
 
----
-
-## Testing and Reliability
-
-The repository includes Python tests for telemetry producer and publishing components.
-
-The local pipeline has also been tested against controlled data-quality scenarios involving:
-
-- Invalid telemetry values
-- Duplicate observations
-- Missing satellite reports
-- Delayed event arrivals
-
-These tests demonstrate the importance of verifying both pipeline execution and the quality of resulting datasets.
-
-Future improvements include expanded Apache Beam unit tests, automated regression checks, and CI-based validation.
+- The batch script runs from the project root.
+- The script regenerates `telemetry_freshness_test.jsonl` each time it executes.
+- Existing generated output files may be replaced.
+- Freshness results may change because simulated arrival delays are randomized.
+- Generated JSONL and KPI reports are excluded from version control.
+- The workflow has been tested in the development environment; a separate clean-clone test remains to be completed.
 
 ---
 
-## Infrastructure as Code
+## 10. Data Quality Engineering Approach
 
-Terraform configuration is provided for the planned Google Cloud deployment.
+OrbitalSense uses explicit quality checks rather than assuming every received event is trustworthy.
 
-The infrastructure definitions cover:
+### Validity
 
-- Cloud Run
-- Pub/Sub
-- Cloud Storage
-- Artifact Registry
-- IAM permissions
-- Required Google Cloud APIs
-- Infrastructure bootstrap configuration
+Records must satisfy the implemented telemetry validation rules before entering curated output.
+
+### Uniqueness
+
+Duplicate events are detected and excluded from valid unique counts.
+
+### Freshness
+
+Events are evaluated against a five-minute delivery threshold.
+
+Late telemetry is distinguished from invalid telemetry.
+
+### Completeness
+
+The pipeline compares received valid reporting combinations with expected satellite reporting combinations.
+
+Missing data is surfaced through structured KPI output.
+
+### Quarantine
+
+Invalid records are kept separate from curated telemetry so data-quality failures can be investigated.
+
+Together, these controls demonstrate how telemetry processing can prioritize correctness, timeliness, and traceability.
+
+---
+
+## 11. Infrastructure as Code
+
+OrbitalSense includes Terraform-based infrastructure preparation for the planned Google Cloud deployment.
+
+### Current status
 
 Terraform configuration has been validated locally.
 
-**Deployment status:** The cloud infrastructure has not yet been provisioned. No live Cloud Run, Pub/Sub, Dataflow, or BigQuery deployment is claimed.
+However:
+
+- Google Cloud billing is not currently enabled.
+- Cloud resources have not been deployed.
+- Cloud execution has not been tested.
+- A complete cloud teardown and redeployment test has not been performed.
+
+### Planned infrastructure responsibilities
+
+Terraform is intended to manage the cloud services required for ingestion, processing, storage, analytics, and access control.
+
+Infrastructure goals include:
+
+- Reproducible provisioning.
+- Least-privilege service accounts.
+- Separation of raw and curated telemetry.
+- Managed streaming execution.
+- Cloud-based analytical storage.
+- Remote Terraform state management.
+- Documented deployment and teardown procedures.
+
+These are target capabilities and must be validated against a deployed environment before being reported as complete.
 
 ---
 
-## Engineering Roadmap
+## 12. Planned Cloud Deployment
 
-| Phase | Engineering deliverable | Status |
-|---|---|---|
-| 1 | Repository foundation and telemetry producer | Implemented |
-| 2 | Local Apache Beam processing | Implemented |
-| 3 | Validation, deduplication, and quarantine | Implemented |
-| 4 | Freshness, completeness, and KPI reporting | Implemented |
-| 5 | Terraform infrastructure configuration | Authored and validated |
-| 6 | Cloud Run and Pub/Sub integration | Planned |
-| 7 | Managed Dataflow execution | Planned |
-| 8 | BigQuery analytics and dashboards | Planned |
-| 9 | CI/CD, monitoring, and alerting | Planned |
+The next cloud implementation phases will extend the verified local workflow.
 
----
+### Phase 1 — Cloud infrastructure
 
-## Security and Development Practices
+- Configure an appropriate Google Cloud project.
+- Enable billing and required APIs.
+- Finalize Terraform configuration.
+- Configure remote Terraform state.
+- Provision infrastructure using Terraform.
+- Validate IAM permissions.
 
-The project uses `.gitignore` rules to exclude local configuration, generated telemetry outputs, credential files, and Terraform state artifacts from routine commits.
+### Phase 2 — Cloud telemetry ingestion
 
-Cloud deployment will require appropriate authentication, IAM permissions, and billing configuration.
+- Package the telemetry producer for container execution.
+- Publish the container image.
+- Deploy the producer to Cloud Run.
+- Publish telemetry events to Pub/Sub.
+- Verify ingestion behavior.
 
-The repository is intended for learning, engineering experimentation, and portfolio demonstration rather than production satellite operations.
+### Phase 3 — Managed stream processing
 
----
+- Adapt the Apache Beam pipeline for Pub/Sub input.
+- Execute the pipeline using Google Cloud Dataflow.
+- Preserve validation and deduplication behavior.
+- Route invalid telemetry to an inspectable quarantine destination.
+- Handle late and out-of-order events.
 
-## Skills Demonstrated
+### Phase 4 — Storage and analytics
 
-**Data Engineering**
-- Apache Beam pipeline development
-- Event processing and transformation
-- JSONL data ingestion
-- Data validation and quarantine
-- Deduplication
-- Data-quality KPI computation
+- Store raw and curated telemetry separately.
+- Create appropriate BigQuery tables.
+- Configure partitioning and clustering.
+- Develop operational SQL queries.
+- Analyze satellite health and communication performance.
 
-**Data Reliability Engineering**
-- Data freshness monitoring
-- Completeness analysis
-- Controlled fault injection
-- Expected-versus-observed event reconciliation
-- Machine-readable quality reporting
+### Phase 5 — Operational reliability
 
-**Cloud Engineering**
-- Google Cloud architecture design
-- Infrastructure as Code with Terraform
-- Docker container configuration
-- Event-driven cloud integration planning
+- Add automated tests.
+- Introduce controlled failure scenarios.
+- Add monitoring and alerting.
+- Validate recovery behavior.
+- Document deployment and rollback procedures.
 
-**Software Engineering**
-- Modular Python development
-- Automated testing
-- Git branching and version control
-- Scripted pipeline execution
-- Technical documentation
+These phases describe planned work rather than completed deliverables.
 
 ---
 
-## Project Purpose
+## 13. Engineering Challenges Addressed
 
-OrbitalSense demonstrates how a data engineering system can be designed to handle imperfect event data while producing measurable reliability indicators.
+The current local implementation demonstrates several important data engineering concepts.
 
-The project combines practical Python development, Apache Beam processing, automated data-quality monitoring, and cloud infrastructure design to showcase engineering capabilities relevant to Data Engineering and Cloud Engineering roles.
+**Challenge 1: Duplicate delivery**
 
-**Repository:** https://github.com/edun1/orbitalsense
+A duplicated telemetry event should not be counted twice in curated output.
+
+**Approach:** Identify and exclude duplicates before computing trusted KPIs.
+
+**Challenge 2: Invalid sensor readings**
+
+An event may be syntactically valid JSON while containing an impossible or implausible value.
+
+**Approach:** Apply validation checks and quarantine rejected records.
+
+**Challenge 3: Satellite reporting gaps**
+
+A satellite may fail to report during an expected cycle.
+
+**Approach:** Compare expected and received reporting combinations and identify missing satellite-cycle pairs.
+
+**Challenge 4: Delayed telemetry**
+
+A valid event may arrive later than the required operational threshold.
+
+**Approach:** Measure freshness independently of validity.
+
+**Challenge 5: Repeatable local execution**
+
+A pipeline should not require developers to manually prepare input files before every run.
+
+**Approach:** Use a batch script that generates input data, processes it, and creates a report automatically.
+
+---
+
+## 14. Limitations and Next Improvements
+
+The current project has several known limitations.
+
+1. The verified workflow runs locally rather than on deployed Google Cloud infrastructure.
+2. The simulator uses randomized delays, so exact freshness results are not deterministic.
+3. The local pipeline reads a generated JSONL file rather than a live Pub/Sub subscription.
+4. Cloud-based quarantine storage and BigQuery analytics are not yet operational.
+5. A fresh-clone execution test remains outstanding.
+6. More automated tests and failure-injection scenarios are needed.
+7. The simulated reporting gap is currently controlled rather than demonstrating a complete satellite dropout-and-recovery lifecycle.
+
+These limitations provide a clear engineering roadmap for the next stages.
+
+---
+
+## 15. Skills Demonstrated
+
+This project provides practical evidence of work in:
+
+- Python data engineering.
+- Apache Beam pipeline development.
+- Structured event processing.
+- Data validation.
+- Duplicate detection.
+- Data freshness measurement.
+- Completeness monitoring.
+- Quarantine and error handling.
+- JSONL processing.
+- Local workflow automation.
+- Git and GitHub version control.
+- Infrastructure-as-code preparation.
+- Cloud data platform architecture.
+
+It is designed as a technical portfolio project for roles including:
+
+**Data Engineer | Cloud Data Engineer | Data Platform Engineer | Data Quality Engineer**
+
+---
+
+## 16. Project Roadmap
+
+| Milestone | Status |
+|---|---|
+| Create GitHub repository | Completed |
+| Develop satellite telemetry simulator | Completed locally |
+| Implement Apache Beam processing | Completed locally |
+| Add validation and quarantine | Completed locally |
+| Implement duplicate detection | Completed locally |
+| Implement freshness KPIs | Completed locally |
+| Implement completeness KPIs | Completed locally |
+| Generate consolidated quality report | Completed locally |
+| Automate local pipeline execution | Completed |
+| Document installation and execution | Completed |
+| Validate Terraform configuration locally | Completed |
+| Test execution from a fresh clone | Pending |
+| Deploy Terraform infrastructure to GCP | Pending |
+| Deploy producer to Cloud Run | Pending |
+| Integrate Pub/Sub ingestion | Pending |
+| Run Apache Beam on Dataflow | Pending |
+| Implement BigQuery analytics | Pending |
+| Add cloud monitoring and recovery tests | Pending |
+
+---
+
+## 17. Author
+
+**Blessing Atigbolaye Edun**
+
+Financial Engineering Graduate Student | Data Analyst | Data Engineering Practitioner
+
+**GitHub:** https://github.com/edun1
+
+**Project Repository:** https://github.com/edun1/orbitalsense
+
+---
+
+## 18. Conclusion
+
+OrbitalSense demonstrates an end-to-end local satellite telemetry data engineering workflow that generates realistic test events, processes them using Apache Beam, identifies data-quality problems, and produces measurable quality indicators.
+
+The latest verified execution processed **37 raw events**, identified **35 valid unique events**, detected **1 invalid event** and **1 duplicate**, achieved **97.22% completeness**, and measured **45.71% freshness compliance**.
+
+The next major milestone is extending this validated local foundation into a reproducible, cloud-native telemetry platform on Google Cloud.
+
+**Project status: Local pipeline operational; cloud deployment in progress.**

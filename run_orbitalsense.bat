@@ -1,4 +1,3 @@
-
 @echo off
 cd /d "%~dp0"
 
@@ -7,7 +6,16 @@ echo      OrbitalSense Data Pipeline
 echo =====================================
 
 echo.
-echo Step 1: Processing satellite telemetry...
+echo Step 1: Generating satellite telemetry...
+py -3.14 -m producer.main > telemetry_freshness_test.jsonl
+
+if errorlevel 1 (
+    echo ERROR: Telemetry generation failed.
+    exit /b 1
+)
+
+echo.
+echo Step 2: Processing satellite telemetry...
 py -3.14 -m pipeline.beam_pipeline
 
 if errorlevel 1 (
@@ -16,7 +24,7 @@ if errorlevel 1 (
 )
 
 echo.
-echo Step 2: Generating data-quality report...
+echo Step 3: Generating data-quality report...
 py -3.14 -m pipeline.quality_report
 
 if errorlevel 1 (
